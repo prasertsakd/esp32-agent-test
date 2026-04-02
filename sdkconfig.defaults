@@ -1,0 +1,26 @@
+# WebSocket support in httpd
+CONFIG_HTTPD_WS_SUPPORT=y
+
+# TLS: skip server cert verification (development only)
+# For production, set CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=n and provide CA cert
+CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
+
+# Enable HTTPS in http client
+CONFIG_ESP_HTTP_CLIENT_ENABLE_HTTPS=y
+
+# Increase main task stack (needed for WiFi init)
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# Log level
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# WiFi buffers
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=32
+
+# SPIFFS
+CONFIG_SPIFFS_MAX_PARTITIONS=3
+
+# Increase HTTP server URI handlers limit
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+CONFIG_HTTPD_MAX_URI_LEN=512
