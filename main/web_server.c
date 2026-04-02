@@ -1,6 +1,7 @@
 #include "web_server.h"
 #include "config.h"
 #include "gpio_ctrl.h"
+#include "neopixel.h"
 #include "openai_api.h"
 
 #include <string.h>
@@ -76,6 +77,28 @@ static void ws_send_gpio_status(httpd_handle_t server, int fd)
     }
 }
 
+static void ws_send_neopixel_status(httpd_handle_t server, int fd)
+{
+    uint8_t r, g, b;
+    neopixel_get_color(&r, &g, &b);
+
+    cJSON *obj = cJSON_CreateObject();
+    cJSON_AddStringToObject(obj, "type", "neopixel");
+    cJSON_AddNumberToObject(obj, "r", r);
+    cJSON_AddNumberToObject(obj, "g", g);
+    cJSON_AddNumberToObject(obj, "b", b);
+    char hex[8];
+    snprintf(hex, sizeof(hex), "#%02x%02x%02x", r, g, b);
+    cJSON_AddStringToObject(obj, "hex", hex);
+
+    char *str = cJSON_PrintUnformatted(obj);
+    cJSON_Delete(obj);
+    if (str) {
+        ws_send_text(server, fd, str);
+        free(str);
+    }
+}
+
 // ─── Chat worker task ─────────────────────────────────────────────────────────
 // Runs in a separate FreeRTOS task to avoid blocking httpd
 
@@ -112,33 +135,62 @@ static void chat_worker_task(void *arg)
         // ── Tool call handling ────────────────────────────────────────────────
         ESP_LOGI(TAG, "Tool call: %s args=%s", resp.function_name, resp.function_args_json);
 
-        // Notify UI that GPIO action is being taken
         ws_send_json_type(server, fd, "thinking", NULL, NULL);
 
-        // Parse function arguments
-        int pin = -1;
-        gpio_action_t action = GPIO_ACTION_UNKNOWN;
-        char action_str[16] = {0};
+        // Execute the right tool based on function name
+        char tool_result_json[256] = "{\"error\":\"unknown tool\"}";
 
-        cJSON *args = cJSON_Parse(resp.function_args_json);
-        if (args) {
-            cJSON *j_pin    = cJSON_GetObjectItem(args, "pin");
-            cJSON *j_action = cJSON_GetObjectItem(args, "action");
-            if (j_pin)    pin = j_pin->valueint;
-            if (j_action) {
-                snprintf(action_str, sizeof(action_str), "%s", j_action->valuestring);
-                action = gpio_ctrl_parse_action(j_action->valuestring);
+        if (strcmp(resp.function_name, "control_gpio") == 0) {
+            int pin = -1;
+            gpio_action_t action = GPIO_ACTION_UNKNOWN;
+            cJSON *args = cJSON_Parse(resp.function_args_json);
+            if (args) {
+                cJSON *j_pin    = cJSON_GetObjectItem(args, "pin");
+                cJSON *j_action = cJSON_GetObjectItem(args, "action");
+                if (j_pin)    pin = j_pin->valueint;
+                if (j_action) action = gpio_ctrl_parse_action(j_action->valuestring);
+                cJSON_Delete(args);
             }
-            cJSON_Delete(args);
+            gpio_cmd_result_t gpio_result;
+            gpio_ctrl_execute(pin, action, &gpio_result);
+            snprintf(tool_result_json, sizeof(tool_result_json),
+                     "%s", gpio_result.result_json);
+            ESP_LOGI(TAG, "GPIO result: %s", tool_result_json);
+
+        } else if (strcmp(resp.function_name, "control_neopixel") == 0) {
+            cJSON *args = cJSON_Parse(resp.function_args_json);
+            if (args) {
+                cJSON *j_action = cJSON_GetObjectItem(args, "action");
+                const char *action_str = j_action ? j_action->valuestring : "off";
+
+                if (strcmp(action_str, "set_color") == 0) {
+                    int r = 0, g = 0, b = 0;
+                    cJSON *jr = cJSON_GetObjectItem(args, "r");
+                    cJSON *jg = cJSON_GetObjectItem(args, "g");
+                    cJSON *jb = cJSON_GetObjectItem(args, "b");
+                    if (jr) r = jr->valueint;
+                    if (jg) g = jg->valueint;
+                    if (jb) b = jb->valueint;
+                    // Clamp to 0-255
+                    r = r < 0 ? 0 : r > 255 ? 255 : r;
+                    g = g < 0 ? 0 : g > 255 ? 255 : g;
+                    b = b < 0 ? 0 : b > 255 ? 255 : b;
+                    neopixel_set_color((uint8_t)r, (uint8_t)g, (uint8_t)b);
+                    snprintf(tool_result_json, sizeof(tool_result_json),
+                             "{\"action\":\"set_color\",\"r\":%d,\"g\":%d,\"b\":%d,"
+                             "\"hex\":\"#%02x%02x%02x\"}",
+                             r, g, b, r, g, b);
+                } else {
+                    neopixel_off();
+                    snprintf(tool_result_json, sizeof(tool_result_json),
+                             "{\"action\":\"off\"}");
+                }
+                cJSON_Delete(args);
+            }
+            ESP_LOGI(TAG, "NeoPixel result: %s", tool_result_json);
         }
 
-        // Execute GPIO command
-        gpio_cmd_result_t gpio_result;
-        gpio_ctrl_execute(pin, action, &gpio_result);
-        ESP_LOGI(TAG, "GPIO result: %s", gpio_result.result_json);
-
         // Build tool_calls JSON for conversation history (assistant message)
-        // OpenAI requires us to echo back the assistant's tool_calls array
         cJSON *tc_array = cJSON_CreateArray();
         cJSON *tc_item  = cJSON_CreateObject();
         cJSON_AddStringToObject(tc_item, "id", resp.tool_call_id);
@@ -151,13 +203,14 @@ static void chat_worker_task(void *arg)
         char *tc_json = cJSON_PrintUnformatted(tc_array);
         cJSON_Delete(tc_array);
 
-        // Add assistant message (with tool_calls) to history
+        // Save tool_call_id before freeing resp
+        char saved_tc_id[64];
+        snprintf(saved_tc_id, sizeof(saved_tc_id), "%s", resp.tool_call_id);
+
         openai_ctx_add_assistant(s_ctx, NULL, tc_json);
         free(tc_json);
-
-        // Add tool result to history
         openai_response_free(&resp);
-        openai_ctx_add_tool_result(s_ctx, resp.tool_call_id, gpio_result.result_json);
+        openai_ctx_add_tool_result(s_ctx, saved_tc_id, tool_result_json);
 
         // Second OpenAI call to get final text response
         openai_response_t resp2;
@@ -188,8 +241,9 @@ static void chat_worker_task(void *arg)
 
         openai_response_free(&resp2);
 
-        // Send updated GPIO status
+        // Send updated hardware status
         ws_send_gpio_status(server, fd);
+        ws_send_neopixel_status(server, fd);
 
     } else {
         // ── Normal text response ──────────────────────────────────────────────
@@ -220,8 +274,8 @@ static esp_err_t ws_handler(httpd_req_t *req)
     if (req->method == HTTP_GET) {
         // WebSocket handshake — just return OK
         ESP_LOGI(TAG, "WebSocket client connected, fd=%d", httpd_req_to_sockfd(req));
-        // Send initial GPIO state
         ws_send_gpio_status(req->handle, httpd_req_to_sockfd(req));
+        ws_send_neopixel_status(req->handle, httpd_req_to_sockfd(req));
         return ESP_OK;
     }
 

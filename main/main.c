@@ -13,6 +13,7 @@
 
 #include "config.h"
 #include "gpio_ctrl.h"
+#include "neopixel.h"
 #include "openai_api.h"
 #include "web_server.h"
 
@@ -115,6 +116,9 @@ void app_main(void)
 
     // Initialize GPIO
     ESP_ERROR_CHECK(gpio_ctrl_init());
+
+    // Initialize NeoPixel
+    ESP_ERROR_CHECK(neopixel_init());
 
     // Connect to WiFi
     ret = wifi_init_sta();

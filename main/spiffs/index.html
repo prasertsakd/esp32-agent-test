@@ -174,7 +174,7 @@
   #btn-send:active { transform: scale(0.95); }
   #btn-send svg { width: 20px; height: 20px; fill: white; }
 
-  /* ── GPIO Panel ── */
+  /* ── Side Panel ── */
   .gpio-panel {
     width: 200px;
     background: #16213e;
@@ -193,6 +193,39 @@
     padding: 12px 14px 8px;
     border-bottom: 1px solid #0f3460;
   }
+
+  /* ── NeoPixel section ── */
+  .neo-section {
+    padding: 10px 12px;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+  }
+  .neo-section h2 {
+    padding: 0 0 8px 0;
+    border-bottom: none;
+  }
+  .neo-swatch-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #neo-swatch {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #1a1a2e;
+    border: 2px solid #0f3460;
+    transition: background 0.4s, box-shadow 0.4s;
+    flex-shrink: 0;
+  }
+  #neo-swatch.on {
+    box-shadow: 0 0 12px 4px var(--neo-color, #ffffff44);
+  }
+  #neo-hex {
+    font-size: 11px;
+    color: #666;
+    font-family: monospace;
+  }
+
   .gpio-list {
     flex: 1;
     overflow-y: auto;
@@ -277,6 +310,15 @@
   </div>
 
   <div class="gpio-panel">
+    <!-- NeoPixel -->
+    <div class="neo-section">
+      <h2>NeoPixel</h2>
+      <div class="neo-swatch-row">
+        <div id="neo-swatch"></div>
+        <span id="neo-hex">#000000</span>
+      </div>
+    </div>
+    <!-- GPIO -->
     <h2>GPIO Status</h2>
     <div class="gpio-list" id="gpio-list">
       <div style="padding:12px;font-size:12px;color:#555;text-align:center">Loading...</div>
@@ -319,6 +361,8 @@
         appendMessage(data.role || 'assistant', data.text || '');
       } else if (data.type === 'gpio') {
         updateGpioPanel(data.pins || []);
+      } else if (data.type === 'neopixel') {
+        updateNeopixel(data);
       } else if (data.type === 'error') {
         hideTyping();
         appendMessage('assistant', '⚠️ Error: ' + (data.text || 'Unknown error'));
@@ -374,6 +418,19 @@
         <div class="gpio-badge">${p.state}</div>`;
       list.appendChild(item);
     });
+  }
+
+  function updateNeopixel(data) {
+    const swatch = document.getElementById('neo-swatch');
+    const hexEl  = document.getElementById('neo-hex');
+    const hex    = data.hex || '#000000';
+    const isOn   = (data.r || 0) + (data.g || 0) + (data.b || 0) > 0;
+
+    swatch.style.setProperty('--neo-color', hex + '88');
+    swatch.style.background = isOn ? hex : '#1a1a2e';
+    swatch.classList.toggle('on', isOn);
+    hexEl.textContent = hex;
+    hexEl.style.color = isOn ? hex : '#555';
   }
 
   function resetChat() {

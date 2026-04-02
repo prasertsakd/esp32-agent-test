@@ -1,17 +1,15 @@
 #pragma once
 
+#include "secrets.h"   // WIFI_SSID, WIFI_PASSWORD, OPENAI_API_KEY
+
 // =============================================================================
-// WiFi Configuration
+// WiFi
 // =============================================================================
-#define WIFI_SSID           "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
 #define WIFI_MAX_RETRIES    10
 
 // =============================================================================
-// OpenAI API Configuration
+// OpenAI API
 // =============================================================================
-// SECURITY: Never commit real API keys. Replace before building.
-#define OPENAI_API_KEY      "sk-..."
 #define OPENAI_API_URL      "https://api.openai.com/v1/chat/completions"
 #define OPENAI_MODEL        "gpt-4o-mini"
 #define OPENAI_MAX_TOKENS   512
@@ -26,6 +24,14 @@
 #define GPIO_PIN_COUNT          8
 
 // =============================================================================
+// NeoPixel (WS2812B) Configuration
+// =============================================================================
+// GPIO48 = onboard RGB LED on ESP32-S3-DevKitC-1
+// Change to match your board / external strip wiring
+#define NEOPIXEL_GPIO       48
+#define NEOPIXEL_COUNT      1     // number of LEDs in the strip
+
+// =============================================================================
 // Web Server
 // =============================================================================
 #define WEB_SERVER_PORT     80
@@ -35,7 +41,6 @@
 // =============================================================================
 // Conversation History
 // =============================================================================
-// Rolling window of N user+assistant turns (system prompt always kept)
 #define MAX_CONVERSATION_TURNS  20
 #define MAX_MESSAGE_LEN         1024
 #define MAX_RESPONSE_LEN        4096
@@ -55,5 +60,7 @@
     "Available GPIO pins: 4, 5, 6, 7, 15, 16, 17, 18. " \
     "Actions: 'high' sets pin to 3.3V (ON), 'low' sets pin to 0V (OFF), " \
     "'toggle' flips the current state, 'read' returns the current level. " \
+    "You can also control the NeoPixel RGB LED using the control_neopixel function. " \
+    "Actions: 'set_color' requires r, g, b values (0-255); 'off' turns the LED off. " \
     "Always confirm what you did after executing a command. " \
     "Respond concisely. Support both English and Thai language."
