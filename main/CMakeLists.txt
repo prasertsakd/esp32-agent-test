@@ -3,6 +3,7 @@ idf_component_register(
         "main.c"
         "openai_api.c"
         "gpio_ctrl.c"
+        "neopixel.c"
         "web_server.c"
     INCLUDE_DIRS
         "."
@@ -12,11 +13,11 @@ idf_component_register(
         esp_event
         esp_http_server
         esp_http_client
-        esp_tls
         spiffs
         driver
         json
         freertos
         log
         esp_netif
+        led_strip
 )

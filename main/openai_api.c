@@ -257,6 +257,54 @@ static char *build_request_json(openai_ctx_t *ctx)
     cJSON_AddItemToObject(tool, "function", func);
     cJSON_AddItemToArray(tools, tool);
 
+    // ── Tool 2: control_neopixel ──────────────────────────────────────────────
+    cJSON *tool2 = cJSON_CreateObject();
+    cJSON_AddStringToObject(tool2, "type", "function");
+
+    cJSON *func2 = cJSON_CreateObject();
+    cJSON_AddStringToObject(func2, "name", "control_neopixel");
+    cJSON_AddStringToObject(func2, "description",
+        "Control the NeoPixel (WS2812B) RGB LED on the ESP32-S3. "
+        "Use this when the user asks to set a color, change the LED color, or turn it off.");
+
+    cJSON *params2 = cJSON_CreateObject();
+    cJSON_AddStringToObject(params2, "type", "object");
+
+    cJSON *props2 = cJSON_CreateObject();
+
+    // action
+    cJSON *np_act = cJSON_CreateObject();
+    cJSON_AddStringToObject(np_act, "type", "string");
+    cJSON_AddStringToObject(np_act, "description",
+        "set_color=set RGB color (requires r,g,b), off=turn LED off");
+    cJSON *np_act_enum = cJSON_CreateArray();
+    cJSON_AddItemToArray(np_act_enum, cJSON_CreateString("set_color"));
+    cJSON_AddItemToArray(np_act_enum, cJSON_CreateString("off"));
+    cJSON_AddItemToObject(np_act, "enum", np_act_enum);
+    cJSON_AddItemToObject(props2, "action", np_act);
+
+    // r, g, b channels
+    const char *channels[] = {"r", "g", "b"};
+    const char *ch_desc[]  = {"Red (0-255)", "Green (0-255)", "Blue (0-255)"};
+    for (int i = 0; i < 3; i++) {
+        cJSON *ch = cJSON_CreateObject();
+        cJSON_AddStringToObject(ch, "type", "integer");
+        cJSON_AddStringToObject(ch, "description", ch_desc[i]);
+        cJSON_AddNumberToObject(ch, "minimum", 0);
+        cJSON_AddNumberToObject(ch, "maximum", 255);
+        cJSON_AddItemToObject(props2, channels[i], ch);
+    }
+
+    cJSON_AddItemToObject(params2, "properties", props2);
+
+    cJSON *required2 = cJSON_CreateArray();
+    cJSON_AddItemToArray(required2, cJSON_CreateString("action"));
+    cJSON_AddItemToObject(params2, "required", required2);
+
+    cJSON_AddItemToObject(func2, "parameters", params2);
+    cJSON_AddItemToObject(tool2, "function", func2);
+    cJSON_AddItemToArray(tools, tool2);
+
     cJSON_AddStringToObject(root, "tool_choice", "auto");
 
     char *json_str = cJSON_PrintUnformatted(root);
