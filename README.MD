@@ -2,6 +2,8 @@
 
 ESP32-S3 chatbot ที่เชื่อมต่อกับ OpenAI API สามารถควบคุม GPIO และ NeoPixel RGB LED ผ่าน Web UI ด้วยภาษาธรรมชาติ (ไทย/อังกฤษ)
 
+![Screenshot](image/screenshot.png)
+
 ## Features
 
 - **AI Chat** — คุยกับ GPT-4o-mini ผ่าน WebSocket แบบ real-time
