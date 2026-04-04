@@ -52,6 +52,9 @@ void openai_ctx_add_tool_result(openai_ctx_t *ctx, const char *tool_call_id,
 // Clear all messages except the system prompt
 void openai_ctx_reset(openai_ctx_t *ctx);
 
+// Remove the last N messages from the conversation history
+void openai_ctx_pop(openai_ctx_t *ctx, int n);
+
 // Send conversation to OpenAI API and get response.
 // BLOCKING — must be called from a FreeRTOS task (not httpd handler).
 esp_err_t openai_chat_completion(openai_ctx_t *ctx, openai_response_t *response);

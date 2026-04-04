@@ -220,6 +220,8 @@ static void chat_worker_task(void *arg)
             ESP_LOGE(TAG, "OpenAI error (2nd): %s", resp2.error_msg);
             ws_send_json_type(server, fd, "error", "text", resp2.error_msg);
             openai_response_free(&resp2);
+            // Roll back assistant(tool_calls) + tool_result to keep history consistent
+            openai_ctx_pop(s_ctx, 2);
             vTaskDelete(NULL);
             return;
         }

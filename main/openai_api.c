@@ -92,19 +92,21 @@ static void ctx_add_message(openai_ctx_t *ctx, message_role_t role,
 {
     xSemaphoreTake(ctx->lock, portMAX_DELAY);
 
-    // Rolling window: if full (beyond system prompt), remove oldest user+assistant pair
-    // messages[0] is always system prompt, user/assistant start at index 1
+    // Rolling window: if full (beyond system prompt), remove oldest turn
+    // A turn may be: user+assistant, or user+assistant(tool_calls)+tool+assistant
+    // Always remove starting from index 1 until we hit the next user message or run out
     int max = MAX_CONVERSATION_TURNS + 1; // +1 for system prompt slot
     if (ctx->count >= max) {
-        // Remove indices 1 and 2 (oldest user+assistant pair), shift left
-        int remove = (ctx->count > 2) ? 2 : 1;
-        free(ctx->messages[1].content);
-        free(ctx->messages[1].tool_call_id);
-        free(ctx->messages[1].tool_call_json);
-        if (remove == 2) {
-            free(ctx->messages[2].content);
-            free(ctx->messages[2].tool_call_id);
-            free(ctx->messages[2].tool_call_json);
+        // Count how many to remove: at least 1, stop before next ROLE_USER or end
+        int remove = 1;
+        while (remove < ctx->count - 1 &&
+               ctx->messages[1 + remove].role != ROLE_USER) {
+            remove++;
+        }
+        for (int r = 0; r < remove; r++) {
+            free(ctx->messages[1 + r].content);
+            free(ctx->messages[1 + r].tool_call_id);
+            free(ctx->messages[1 + r].tool_call_json);
         }
         int shift_count = ctx->count - 1 - remove;
         if (shift_count > 0) {
@@ -153,6 +155,22 @@ void openai_ctx_reset(openai_ctx_t *ctx)
         memset(&ctx->messages[i], 0, sizeof(conv_message_t));
     }
     ctx->count = 1; // keep system prompt
+    xSemaphoreGive(ctx->lock);
+}
+
+void openai_ctx_pop(openai_ctx_t *ctx, int n)
+{
+    xSemaphoreTake(ctx->lock, portMAX_DELAY);
+    // Never pop below the system prompt (index 0)
+    int to_remove = n < (ctx->count - 1) ? n : (ctx->count - 1);
+    for (int i = 0; i < to_remove; i++) {
+        int idx = ctx->count - 1 - i;
+        free(ctx->messages[idx].content);
+        free(ctx->messages[idx].tool_call_id);
+        free(ctx->messages[idx].tool_call_json);
+        memset(&ctx->messages[idx], 0, sizeof(conv_message_t));
+    }
+    ctx->count -= to_remove;
     xSemaphoreGive(ctx->lock);
 }
 
