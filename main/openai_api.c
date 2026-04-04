@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "esp_log.h"
 #include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 #include "cJSON.h"
 
 static const char *TAG = "openai_api";
@@ -227,7 +228,7 @@ static char *build_request_json(openai_ctx_t *ctx)
         "GPIO pin number. Valid values: 4, 5, 6, 7, 15, 16, 17, 18");
     cJSON *pin_enum = cJSON_CreateArray();
     int valid_pins[] = GPIO_CONTROLLABLE_PINS;
-    for (int i = 0; i < GPIO_PIN_COUNT; i++) {
+    for (int i = 0; i < GPIO_CONTROLLABLE_COUNT; i++) {
         cJSON_AddItemToArray(pin_enum, cJSON_CreateNumber(valid_pins[i]));
     }
     cJSON_AddItemToObject(pin_prop, "enum", pin_enum);
@@ -432,7 +433,7 @@ esp_err_t openai_chat_completion(openai_ctx_t *ctx, openai_response_t *response)
     rb.buf[0] = '\0';
 
     // Configure HTTP client
-    char auth_header[128];
+    char auth_header[256];
     snprintf(auth_header, sizeof(auth_header), "Bearer %s", OPENAI_API_KEY);
 
     esp_http_client_config_t config = {
@@ -443,7 +444,7 @@ esp_err_t openai_chat_completion(openai_ctx_t *ctx, openai_response_t *response)
         .timeout_ms         = 30000,
         .buffer_size        = 2048,
         .buffer_size_tx     = 4096,
-        .skip_cert_common_name_check = true,
+        .crt_bundle_attach  = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);

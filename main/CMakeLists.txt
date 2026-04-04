@@ -20,4 +20,7 @@ idf_component_register(
         log
         esp_netif
         led_strip
+        mbedtls
 )
+
+spiffs_create_partition_image(spiffs "${CMAKE_CURRENT_SOURCE_DIR}/spiffs" FLASH_IN_PROJECT)

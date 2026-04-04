@@ -21,7 +21,7 @@
 // Pins available for AI control.
 // Avoids ESP32-S3 strapping pins: GPIO0, GPIO3, GPIO45, GPIO46
 #define GPIO_CONTROLLABLE_PINS  {4, 5, 6, 7, 15, 16, 17, 18}
-#define GPIO_PIN_COUNT          8
+#define GPIO_CONTROLLABLE_COUNT 8
 
 // =============================================================================
 // NeoPixel (WS2812B) Configuration

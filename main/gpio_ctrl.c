@@ -9,13 +9,13 @@
 
 static const char *TAG = "gpio_ctrl";
 
-static const int allowed_pins[GPIO_PIN_COUNT] = GPIO_CONTROLLABLE_PINS;
-static int pin_levels[GPIO_PIN_COUNT] = {0}; // cached state: 0=LOW, 1=HIGH
+static const int allowed_pins[GPIO_CONTROLLABLE_COUNT] = GPIO_CONTROLLABLE_PINS;
+static int pin_levels[GPIO_CONTROLLABLE_COUNT] = {0}; // cached state: 0=LOW, 1=HIGH
 
 // Returns index of pin in allowed_pins[], or -1 if not found
 static int pin_index(int pin)
 {
-    for (int i = 0; i < GPIO_PIN_COUNT; i++) {
+    for (int i = 0; i < GPIO_CONTROLLABLE_COUNT; i++) {
         if (allowed_pins[i] == pin) return i;
     }
     return -1;
@@ -23,8 +23,8 @@ static int pin_index(int pin)
 
 esp_err_t gpio_ctrl_init(void)
 {
-    ESP_LOGI(TAG, "Initializing %d GPIO pins", GPIO_PIN_COUNT);
-    for (int i = 0; i < GPIO_PIN_COUNT; i++) {
+    ESP_LOGI(TAG, "Initializing %d GPIO pins", GPIO_CONTROLLABLE_COUNT);
+    for (int i = 0; i < GPIO_CONTROLLABLE_COUNT; i++) {
         int pin = allowed_pins[i];
         gpio_config_t cfg = {
             .pin_bit_mask = (1ULL << pin),
@@ -135,14 +135,14 @@ void gpio_ctrl_execute(int pin, gpio_action_t action, gpio_cmd_result_t *result)
 char *gpio_ctrl_status_json(void)
 {
     // Build: [{"pin":4,"state":"LOW"},{"pin":5,"state":"LOW"},...]
-    // Each entry is ~25 chars. Total ~25*GPIO_PIN_COUNT + brackets + commas
-    int buf_size = GPIO_PIN_COUNT * 30 + 8;
+    // Each entry is ~25 chars. Total ~25*GPIO_CONTROLLABLE_COUNT + brackets + commas
+    int buf_size = GPIO_CONTROLLABLE_COUNT * 30 + 8;
     char *buf = malloc(buf_size);
     if (!buf) return NULL;
 
     int offset = 0;
     offset += snprintf(buf + offset, buf_size - offset, "[");
-    for (int i = 0; i < GPIO_PIN_COUNT; i++) {
+    for (int i = 0; i < GPIO_CONTROLLABLE_COUNT; i++) {
         offset += snprintf(buf + offset, buf_size - offset,
                            "%s{\"pin\":%d,\"state\":\"%s\"}",
                            i > 0 ? "," : "",
